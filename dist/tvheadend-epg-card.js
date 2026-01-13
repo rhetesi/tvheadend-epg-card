@@ -12,7 +12,6 @@ class TvheadendEpgCard extends HTMLElement {
     this.PX_PER_MIN = 4;
     this.CHANNEL_COL_WIDTH = 150;
     this.ROW_HEIGHT = 72;
-    this.CARD_GAP = 8; // PX – EZ A KULCS
 
     this.WINDOW_BEFORE = 3 * 3600;
     this.WINDOW_AFTER = 6 * 3600;
@@ -170,8 +169,12 @@ class TvheadendEpgCard extends HTMLElement {
           white-space: nowrap;
           text-overflow: ellipsis;
 
-          border: 1px solid rgba(255, 255, 255, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.18);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+
+          /* 🔑 EZ A MEGOLDÁS */
+          transform: scaleX(0.94);
+          transform-origin: center;
         }
 
         .event.current {
@@ -194,12 +197,7 @@ class TvheadendEpgCard extends HTMLElement {
     `;
 
     if (this._loading || this._error || !this._epg.length) {
-      this.shadowRoot.innerHTML = `
-        ${style}
-        <ha-card>
-          <div class="header">TVHeadend EPG</div>
-        </ha-card>
-      `;
+      this.shadowRoot.innerHTML = `${style}<ha-card><div class="header">TVHeadend EPG</div></ha-card>`;
       return;
     }
 
@@ -221,25 +219,14 @@ class TvheadendEpgCard extends HTMLElement {
     const totalMinutes = (viewEnd - viewStart) / 60;
     const gridWidth = totalMinutes * this.PX_PER_MIN;
 
-    const nowLeft =
-      ((this._now - viewStart) / 60) * this.PX_PER_MIN;
-
-    const timebar = [];
-    for (let t = viewStart; t <= viewEnd; t += 3600) {
-      timebar.push(
-        `<div class="timecell">${new Date(t * 1000).getHours()}:00</div>`
-      );
-    }
+    const nowLeft = ((this._now - viewStart) / 60) * this.PX_PER_MIN;
 
     const rows = channels.map(c => {
       const events = c.events.map(e => {
         if (e.stop < viewStart || e.start > viewEnd) return "";
 
-        const rawWidth = ((e.stop - e.start) / 60) * this.PX_PER_MIN;
-        const width = Math.max(0, rawWidth - this.CARD_GAP);
-        const left =
-          ((e.start - viewStart) / 60) * this.PX_PER_MIN +
-          this.CARD_GAP / 2;
+        const width = ((e.stop - e.start) / 60) * this.PX_PER_MIN;
+        const left = ((e.start - viewStart) / 60) * this.PX_PER_MIN;
 
         const isCurrent = e.start <= this._now && this._now < e.stop;
 
@@ -258,12 +245,9 @@ class TvheadendEpgCard extends HTMLElement {
       ${style}
       <ha-card>
         <div class="header">TVHeadend EPG</div>
-        <div class="timebar">${timebar.join("")}</div>
         <div class="container">
           <div class="channels">
-            ${channels.map(c =>
-              `<div class="channel">${c.number} – ${c.name}</div>`
-            ).join("")}
+            ${channels.map(c => `<div class="channel">${c.number} – ${c.name}</div>`).join("")}
           </div>
           <div class="grid" style="width:${gridWidth}px">
             <div class="now-line" style="left:${nowLeft}px"></div>
@@ -272,13 +256,6 @@ class TvheadendEpgCard extends HTMLElement {
         </div>
       </ha-card>
     `;
-
-    requestAnimationFrame(() => {
-      const container = this.shadowRoot.querySelector(".container");
-      if (container) {
-        container.scrollLeft = nowLeft - container.clientWidth / 3;
-      }
-    });
   }
 
   getCardSize() {
