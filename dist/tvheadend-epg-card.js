@@ -12,6 +12,7 @@ class TvheadendEpgCard extends HTMLElement {
     this.PX_PER_MIN = 4;
     this.CHANNEL_COL_WIDTH = 150;
     this.ROW_HEIGHT = 72;
+    this.CARD_GAP = 8; // PX – EZ A KULCS
 
     this.WINDOW_BEFORE = 3 * 3600;
     this.WINDOW_AFTER = 6 * 3600;
@@ -144,7 +145,6 @@ class TvheadendEpgCard extends HTMLElement {
 
         .row {
           position: relative;
-          padding-bottom: 4px;
         }
 
         .grid {
@@ -169,9 +169,6 @@ class TvheadendEpgCard extends HTMLElement {
           overflow: hidden;
           white-space: nowrap;
           text-overflow: ellipsis;
-
-          margin-left: 4px;
-          margin-right: 4px;
 
           border: 1px solid rgba(255, 255, 255, 0.15);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
@@ -238,8 +235,11 @@ class TvheadendEpgCard extends HTMLElement {
       const events = c.events.map(e => {
         if (e.stop < viewStart || e.start > viewEnd) return "";
 
-        const width = ((e.stop - e.start) / 60) * this.PX_PER_MIN;
-        const left = ((e.start - viewStart) / 60) * this.PX_PER_MIN;
+        const rawWidth = ((e.stop - e.start) / 60) * this.PX_PER_MIN;
+        const width = Math.max(0, rawWidth - this.CARD_GAP);
+        const left =
+          ((e.start - viewStart) / 60) * this.PX_PER_MIN +
+          this.CARD_GAP / 2;
 
         const isCurrent = e.start <= this._now && this._now < e.stop;
 
