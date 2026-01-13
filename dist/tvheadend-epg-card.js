@@ -6,12 +6,11 @@ class TvheadendEpgCard extends HTMLElement {
     this._hass = null;
     this._epg = [];
     this._entryId = null;
-    this._loading = false;
-    this._error = null;
 
     this.PX_PER_MIN = 4;
     this.CHANNEL_COL_WIDTH = 150;
     this.ROW_HEIGHT = 72;
+    this.CARD_GAP = 6; // px – garantált rés
 
     this.WINDOW_BEFORE = 3 * 3600;
     this.WINDOW_AFTER = 6 * 3600;
@@ -27,63 +26,43 @@ class TvheadendEpgCard extends HTMLElement {
     clearInterval(this._interval);
   }
 
-  setConfig(config) {
-    this.config = config || {};
-  }
-
   set hass(hass) {
     this._hass = hass;
     if (!this._entryId && hass) this._resolveEntryId();
-    this._render();
-  }
-
-  connectedCallback() {
-    if (this._entryId) this._fetchEpg();
   }
 
   async _resolveEntryId() {
-    try {
-      const entries = await this._hass.connection.sendMessagePromise({
-        type: "config_entries/get",
-        domain: "tvheadend_epg",
-      });
-      if (!entries?.length) throw new Error();
-      this._entryId = entries[0].entry_id;
-      await this._fetchEpg();
-    } catch {
-      this._error = "TVHeadend EPG integráció nem található";
-      this._render();
-    }
+    const entries = await this._hass.connection.sendMessagePromise({
+      type: "config_entries/get",
+      domain: "tvheadend_epg",
+    });
+    if (!entries?.length) return;
+    this._entryId = entries[0].entry_id;
+    this._fetchEpg();
   }
 
   async _fetchEpg() {
-    if (!this._hass || !this._entryId) return;
-    this._loading = true;
+    const result = await this._hass.connection.sendMessagePromise({
+      type: "tvheadend_epg/fetch",
+      entry_id: this._entryId,
+    });
+    this._epg = result.epg || [];
     this._render();
-
-    try {
-      const result = await this._hass.connection.sendMessagePromise({
-        type: "tvheadend_epg/fetch",
-        entry_id: this._entryId,
-      });
-      this._epg = Array.isArray(result.epg) ? result.epg : [];
-    } catch {
-      this._error = "EPG betöltési hiba";
-    } finally {
-      this._loading = false;
-      this._render();
-    }
   }
 
   _render() {
-    if (!this.shadowRoot) return;
+    if (!this.shadowRoot || !this._epg.length) return;
+
+    const viewStart = this._now - this.WINDOW_BEFORE;
+    const viewEnd = this._now + this.WINDOW_AFTER;
+    const gridWidth = ((viewEnd - viewStart) / 60) * this.PX_PER_MIN;
 
     const style = `
       <style>
         ha-card {
-          height: 100%;
           display: flex;
           flex-direction: column;
+          height: 100%;
         }
 
         .header {
@@ -93,95 +72,58 @@ class TvheadendEpgCard extends HTMLElement {
           border-bottom: 1px solid var(--divider-color);
         }
 
-        .timebar {
-          position: sticky;
-          top: 0;
-          z-index: 3;
-          background: var(--card-background-color);
-          border-bottom: 1px solid var(--divider-color);
-          height: 32px;
-          display: flex;
-          margin-left: ${this.CHANNEL_COL_WIDTH}px;
-        }
-
-        .timecell {
-          font-size: 12px;
-          padding-left: 6px;
-          border-left: 1px solid var(--divider-color);
-          line-height: 32px;
-          white-space: nowrap;
-          width: ${60 * this.PX_PER_MIN}px;
-        }
-
         .container {
-          flex: 1;
           display: flex;
           overflow: auto;
+          flex: 1;
         }
 
         .channels {
           position: sticky;
           left: 0;
-          z-index: 2;
           background: var(--card-background-color);
           min-width: ${this.CHANNEL_COL_WIDTH}px;
           border-right: 1px solid var(--divider-color);
-        }
-
-        .channel,
-        .row {
-          box-sizing: border-box;
-          height: ${this.ROW_HEIGHT}px;
-          border-bottom: 1px solid var(--divider-color);
+          z-index: 2;
         }
 
         .channel {
+          height: ${this.ROW_HEIGHT}px;
           display: flex;
           align-items: center;
           padding: 0 8px;
           font-weight: 600;
-        }
-
-        .row {
-          position: relative;
+          border-bottom: 1px solid var(--divider-color);
         }
 
         .grid {
           position: relative;
-          flex: 1;
+          width: ${gridWidth}px;
+        }
+
+        .row {
+          position: relative;
+          height: ${this.ROW_HEIGHT}px;
+          border-bottom: 1px solid var(--divider-color);
         }
 
         .event {
           position: absolute;
           top: 8px;
           height: ${this.ROW_HEIGHT - 16}px;
-
-          background: var(--primary-color);
-          color: white;
-
           padding: 6px 8px;
           border-radius: 10px;
-
+          background: var(--primary-color);
+          color: white;
           font-size: 12px;
-          line-height: 1.2;
-
-          overflow: hidden;
           white-space: nowrap;
+          overflow: hidden;
           text-overflow: ellipsis;
-
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-
-          /* 🔑 EZ A MEGOLDÁS */
-          transform: scaleX(0.94);
-          transform-origin: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,.35);
         }
 
         .event.current {
           background: var(--accent-color);
-          box-shadow:
-            0 0 0 2px rgba(255, 255, 255, 0.35),
-            0 2px 6px rgba(0, 0, 0, 0.45);
         }
 
         .now-line {
@@ -191,18 +133,14 @@ class TvheadendEpgCard extends HTMLElement {
           width: 2px;
           background: var(--error-color);
           z-index: 5;
-          pointer-events: none;
         }
       </style>
     `;
 
-    if (this._loading || this._error || !this._epg.length) {
-      this.shadowRoot.innerHTML = `${style}<ha-card><div class="header">TVHeadend EPG</div></ha-card>`;
-      return;
-    }
-
+    /* ---------- CSATORNÁK CSOPORTOSÍTÁSA ---------- */
     const byChannel = {};
     for (const e of this._epg) {
+      if (e.stop < viewStart || e.start > viewEnd) continue;
       byChannel[e.channelUuid] ??= {
         number: Number(e.channelNumber),
         name: e.channelName,
@@ -213,20 +151,18 @@ class TvheadendEpgCard extends HTMLElement {
 
     const channels = Object.values(byChannel).sort((a, b) => a.number - b.number);
 
-    const viewStart = this._now - this.WINDOW_BEFORE;
-    const viewEnd = this._now + this.WINDOW_AFTER;
-
-    const totalMinutes = (viewEnd - viewStart) / 60;
-    const gridWidth = totalMinutes * this.PX_PER_MIN;
-
-    const nowLeft = ((this._now - viewStart) / 60) * this.PX_PER_MIN;
-
+    /* ---------- SOROK RENDERELÉSE ÜTKÖZÉSVÉDELEMMEL ---------- */
     const rows = channels.map(c => {
-      const events = c.events.map(e => {
-        if (e.stop < viewStart || e.start > viewEnd) return "";
+      c.events.sort((a, b) => a.start - b.start);
 
-        const width = ((e.stop - e.start) / 60) * this.PX_PER_MIN;
-        const left = ((e.start - viewStart) / 60) * this.PX_PER_MIN;
+      let lastRight = -Infinity;
+
+      const blocks = c.events.map(e => {
+        const rawLeft = ((e.start - viewStart) / 60) * this.PX_PER_MIN;
+        const width = Math.max(10, ((e.stop - e.start) / 60) * this.PX_PER_MIN);
+
+        const left = Math.max(rawLeft, lastRight + this.CARD_GAP);
+        lastRight = left + width;
 
         const isCurrent = e.start <= this._now && this._now < e.stop;
 
@@ -238,8 +174,10 @@ class TvheadendEpgCard extends HTMLElement {
         `;
       }).join("");
 
-      return `<div class="row" style="width:${gridWidth}px">${events}</div>`;
+      return `<div class="row">${blocks}</div>`;
     }).join("");
+
+    const nowLeft = ((this._now - viewStart) / 60) * this.PX_PER_MIN;
 
     this.shadowRoot.innerHTML = `
       ${style}
@@ -249,7 +187,7 @@ class TvheadendEpgCard extends HTMLElement {
           <div class="channels">
             ${channels.map(c => `<div class="channel">${c.number} – ${c.name}</div>`).join("")}
           </div>
-          <div class="grid" style="width:${gridWidth}px">
+          <div class="grid">
             <div class="now-line" style="left:${nowLeft}px"></div>
             ${rows}
           </div>
