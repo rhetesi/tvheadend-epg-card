@@ -16,6 +16,7 @@ class TvheadendEpgCard extends HTMLElement {
 
     this._now = Math.floor(Date.now() / 1000);
 
+    // Belső óra frissítése
     this._timer = setInterval(() => {
       this._now = Math.floor(Date.now() / 1000);
       this._render(true);
@@ -29,7 +30,11 @@ class TvheadendEpgCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     if (!this._entryId && hass) this._resolveEntryId();
-    if (Date.now() - this._lastRenderTime >= 120000) this._render();
+    
+    const now = Date.now();
+    if (now - this._lastRenderTime >= 120000) {
+      this._render();
+    }
   }
 
   async _resolveEntryId() {
@@ -41,7 +46,7 @@ class TvheadendEpgCard extends HTMLElement {
         this._entryId = entries[0].entry_id;
         await this._fetchEpg();
       }
-    } catch (e) { console.error("Entry resolve error", e); }
+    } catch (e) { console.error("Entry error", e); }
   }
 
   async _fetchEpg() {
@@ -79,7 +84,7 @@ class TvheadendEpgCard extends HTMLElement {
     if (channels.length === 0) return;
 
     const gridWidth = ((maxEnd - minStart) / 60) * this.PX_PER_MIN;
-    const nowLeft = ((this._now - minStart) / 60) * this.PX_PER_MIN;
+    const nowPos = ((this._now - minStart) / 60) * this.PX_PER_MIN;
 
     const style = `
       <style>
@@ -97,7 +102,6 @@ class TvheadendEpgCard extends HTMLElement {
           overflow: auto;
           max-height: 750px;
           position: relative;
-          /* Snap görgetés beállítása */
           scroll-snap-type: x proximity;
           scroll-behavior: smooth;
         }
@@ -107,6 +111,7 @@ class TvheadendEpgCard extends HTMLElement {
           grid-template-columns: ${this.CHANNEL_COL_WIDTH}px 1fr;
           position: relative;
           width: max-content;
+          --now-x: ${nowPos}px;
         }
 
         .corner-spacer {
@@ -130,38 +135,40 @@ class TvheadendEpgCard extends HTMLElement {
           border-right: 2px solid var(--divider-color);
         }
 
-        /* PIXELPONTOS NOW LINE & MARKER */
         .now-marker {
           position: absolute; bottom: 0; width: 0; height: 0;
+          left: var(--now-x);
           border-left: 7px solid transparent;
           border-right: 7px solid transparent;
           border-top: 10px solid var(--error-color, #ff4444);
-          /* Eltolás a 2px-es vonal közepéhez igazítva */
-          transform: translateX(calc(-50% + 1px)); 
+          transform: translateX(-50%);
           z-index: 9;
         }
 
         .now-line {
-          position: absolute; top: 0; bottom: 0; width: 2px;
+          position: absolute; top: 0; bottom: 0; 
+          left: var(--now-x);
+          width: 2px;
           background: var(--error-color, #ff4444); 
           z-index: 5;
           pointer-events: none;
-          /* Megállási pont görgetéskor */
+          transform: translateX(-50%);
           scroll-snap-align: center;
+          scroll-snap-stop: always;
         }
 
         .program-grid { position: relative; width: ${gridWidth}px; z-index: 1; }
 
         .event {
           position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px;
-          padding: 6px; border-radius: 4px; font-size: 11px; overflow: hidden;
+          padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden;
           background: var(--primary-color); color: var(--text-primary-color, white);
           border-left: 3px solid rgba(0,0,0,0.1);
           z-index: 2;
           cursor: help;
         }
-
-        .event.current { background: var(--accent-color); color: var(--text-accent-color, white); }
+        .event:hover { filter: brightness(1.1); }
+        .event.current { background: var(--accent-color); color: var(--text-accent-color, white); font-weight: 500; }
         .event-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
         .channel-cell {
@@ -193,9 +200,9 @@ class TvheadendEpgCard extends HTMLElement {
         const width = ((stop - start) / 60) * this.PX_PER_MIN - this.CARD_GAP;
         const isCurrent = start <= this._now && this._now < stop;
         const timeStr = new Date(start * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        const stopStr = new Date(stop * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         
-        // Tooltip tartalom összeállítása
-        const tooltip = `${e.title}\nIdőpont: ${timeStr}\nIdőtartam: ${Math.round((stop-start)/60)} perc`;
+        const tooltip = `${e.title}\n${timeStr} - ${stopStr}\n${Math.round((stop-start)/60)} perc`;
 
         return `<div class="event ${isCurrent ? 'current' : ''}" 
                      style="left:${left}px; width:${Math.max(width, 10)}px;"
@@ -214,14 +221,14 @@ class TvheadendEpgCard extends HTMLElement {
           <div class="epg-grid">
             <div class="corner-spacer">Csatorna</div>
             <div class="time-header">
-              <div class="now-marker" style="left:${nowLeft}px"></div>
+              <div class="now-marker"></div>
               ${timeLabels.join("")}
             </div>
             <div class="channel-col">
               ${channels.map(c => `<div class="channel-cell"><strong>${c.number}</strong><span>${c.name}</span></div>`).join("")}
             </div>
             <div class="program-grid">
-              <div class="now-line" id="nowLine" style="left:${nowLeft}px"></div>
+              <div class="now-line"></div>
               ${rows}
             </div>
           </div>
@@ -229,16 +236,16 @@ class TvheadendEpgCard extends HTMLElement {
       </ha-card>
     `;
 
-    // Első betöltéskor a mostani időhöz görget
-    if (!this._initialScrolled) {
-      requestAnimationFrame(() => {
-        const wrapper = this.shadowRoot.querySelector(".outer-wrapper");
-        if (wrapper) {
-          wrapper.scrollLeft = nowLeft - (wrapper.clientWidth / 3);
-          this._initialScrolled = true;
-        }
-      });
-    }
+    // KERESETT JAVÍTÁS: Minden renderelésnél (frissítésnél) lefut a pozicionálás
+    requestAnimationFrame(() => {
+      const wrapper = this.shadowRoot.querySelector(".outer-wrapper");
+      if (wrapper) {
+        // Úgy pozicionálunk, hogy a piros vonal a kártya bal szélétől 
+        // a látható szélesség 20%-ánál legyen (hogy látszódjon kicsit a múlt is)
+        const scrollTarget = nowPos - (wrapper.clientWidth * 0.2);
+        wrapper.scrollLeft = Math.max(0, scrollTarget);
+      }
+    });
   }
 
   disconnectedCallback() { clearInterval(this._timer); }
