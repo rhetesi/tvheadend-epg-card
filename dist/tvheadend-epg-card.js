@@ -64,8 +64,8 @@ class TvheadendEpgCard extends HTMLElement {
     tooltip.style.display = 'block';
     
     const rect = this.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.touches ? e.changedTouches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.changedTouches[0].clientY : e.clientY;
     
     const x = clientX - rect.left;
     const y = clientY - rect.top - 60;
@@ -246,11 +246,12 @@ class TvheadendEpgCard extends HTMLElement {
       // MOBIL ESEMÉNYEK
       el.addEventListener('touchstart', (ev) => {
         isLongPress = false;
+        // FRISSÍTETT IDŐZÍTŐ: 800ms
         touchTimer = setTimeout(() => {
           isLongPress = true;
           this._showDetails(eventData);
           if (navigator.vibrate) navigator.vibrate(50);
-        }, 500);
+        }, 800);
       }, { passive: true });
 
       el.addEventListener('touchend', (ev) => {
