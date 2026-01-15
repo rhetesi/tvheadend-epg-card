@@ -14,6 +14,21 @@ class TvheadendEpgCard extends HTMLElement {
     this.ROW_HEIGHT = 80;
     this.CARD_GAP = 2;
 
+    // Színskála a mellékelt kép alapján
+    this.GENRE_COLORS = {
+      'Movie / Drama': '#a6611a',
+      'News / Current affairs': '#5e8e65',
+      'Show / Game show': '#b2b21a',
+      'Sports': '#d62728',
+      'Children\'s / Youth programs': '#17a2b8',
+      'Music / Ballet / Dance': '#44bd32',
+      'Arts / Culture (without music)': '#0044cc',
+      'Social / Political issues / Economics': '#95a5a6',
+      'Education / Science / Factual topics': '#8e44ad',
+      'Leisure hobbies': '#7f8fa6',
+      'Special characteristics': '#2980b9'
+    };
+
     this._now = Math.floor(Date.now() / 1000);
 
     this._timer = setInterval(() => {
@@ -56,6 +71,15 @@ class TvheadendEpgCard extends HTMLElement {
       this._loading = false;
       this._render(true);
     }
+  }
+
+  _getGenreColor(genre) {
+    if (!genre) return 'var(--primary-color)';
+    // Megpróbáljuk illeszteni a műfajt a színtáblázathoz
+    for (const [key, color] of Object.entries(this.GENRE_COLORS)) {
+      if (genre.includes(key) || key.includes(genre)) return color;
+    }
+    return 'var(--primary-color)';
   }
 
   _showTooltip(e, content) {
@@ -166,9 +190,9 @@ class TvheadendEpgCard extends HTMLElement {
         .now-line { position: absolute; top: 0; bottom: 0; left: var(--now-x); width: 2px; background: var(--error-color, #ff4444); z-index: 5; pointer-events: none; transform: translateX(-50%); scroll-snap-align: center; }
 
         .program-grid { position: relative; width: ${gridWidth}px; z-index: 1; }
-        .event { position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px; padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden; background: var(--primary-color); color: var(--text-primary-color, white); border-left: 3px solid rgba(0,0,0,0.1); z-index: 2; cursor: pointer; }
-        .event.current { background: var(--accent-color); color: var(--text-accent-color, white); font-weight: 500; }
-        .event-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .event { position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px; padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden; color: white; border-left: 3px solid rgba(0,0,0,0.2); z-index: 2; cursor: pointer; }
+        .event.current { border: 2px solid white; font-weight: bold; box-shadow: inset 0 0 10px rgba(255,255,255,0.3); }
+        .event-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         
         .channel-cell { height: ${this.ROW_HEIGHT}px; display: flex; flex-direction: column; justify-content: center; padding: 0 10px; border-bottom: 1px solid var(--divider-color); font-size: 13px; }
         .row { height: ${this.ROW_HEIGHT}px; border-bottom: 1px solid var(--divider-color); position: relative; }
@@ -207,11 +231,14 @@ class TvheadendEpgCard extends HTMLElement {
                 return `<div class="row">${c.events.map((e, idx) => {
                   const left = ((e.start - minStart) / 60) * this.PX_PER_MIN;
                   const width = ((e.stop - e.start) / 60) * this.PX_PER_MIN - this.CARD_GAP;
-                  return `<div class="event ${e.start <= this._now && this._now < e.stop ? 'current' : ''}" 
-                               style="left:${left}px; width:${Math.max(width, 10)}px;"
+                  const isNow = e.start <= this._now && this._now < e.stop;
+                  const bgColor = this._getGenreColor(e.genre);
+                  
+                  return `<div class="event ${isNow ? 'current' : ''}" 
+                               style="left:${left}px; width:${Math.max(width, 10)}px; background-color: ${bgColor};"
                                data-index="${idx}" data-channel="${c.number}">
                     <div class="event-title">${e.title}</div>
-                    <div style="font-size:0.9em; opacity:0.8;">${new Date(e.start * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                    <div style="font-size:0.9em; opacity:0.9;">${new Date(e.start * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                   </div>`;
                 }).join("")}</div>`;
               }).join("")}
@@ -229,7 +256,6 @@ class TvheadendEpgCard extends HTMLElement {
       let touchTimer;
       let isLongPress = false;
 
-      // ASZTALI ESEMÉNYEK
       el.addEventListener('mouseenter', (ev) => {
         if (ev.sourceCapabilities && !ev.sourceCapabilities.firesTouchEvents) {
           const timeStr = new Date(eventData.start * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -243,15 +269,14 @@ class TvheadendEpgCard extends HTMLElement {
         if (ev.detail !== 0) this._showDetails(eventData);
       });
 
-      // MOBIL ESEMÉNYEK
       el.addEventListener('touchstart', (ev) => {
         isLongPress = false;
-        // FRISSÍTETT IDŐZÍTŐ: 800ms
+        // FRISSÍTETT IDŐZÍTŐ: 1000ms
         touchTimer = setTimeout(() => {
           isLongPress = true;
           this._showDetails(eventData);
           if (navigator.vibrate) navigator.vibrate(50);
-        }, 800);
+        }, 1000);
       }, { passive: true });
 
       el.addEventListener('touchend', (ev) => {
