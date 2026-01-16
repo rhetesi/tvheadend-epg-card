@@ -154,11 +154,13 @@ class TvheadendEpgCard extends HTMLElement {
         .program-grid { position: relative; width: ${gridWidth}px; }
         .event { position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px; padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden; color: white; border-left: 3px solid rgba(0,0,0,0.2); cursor: pointer; }
         
-        /* MÓDOSÍTOTT: Aktuális műsor kerete a HA témához igazodik */
+        /* MÓDOSÍTOTT: Neon-sárga kiemelés kerettel és árnyékkal */
         .event.current { 
-          outline: 2px solid var(--primary-text-color);
-          outline-offset: -2px;
+          outline: 3px solid #ffff00;
+          outline-offset: -3px;
+          z-index: 10;
           font-weight: bold; 
+          box-shadow: 0 0 8px rgba(255, 255, 0, 0.6);
         }
 
         .event-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
