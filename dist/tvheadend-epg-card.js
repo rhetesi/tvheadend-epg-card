@@ -14,31 +14,17 @@ class TvheadendEpgCard extends HTMLElement {
     this.ROW_HEIGHT = 80;
     this.CARD_GAP = 2;
 
-    // Színskála a beküldött kép és a numerikus kódok (DVB genre codes) alapján
     this.GENRE_MAP = {
-      // Film / Dráma (Kód: 16-31)
       'movie': { color: '#a6611a', codes: [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31] },
-      'drama': { color: '#a6611a', codes: [] },
-      // Hírek (Kód: 32-47)
       'news': { color: '#5e8e65', codes: [32, 33, 34, 35] },
-      'current': { color: '#5e8e65', codes: [] },
-      // Show / Játék (Kód: 48-63)
       'show': { color: '#b2b21a', codes: [48, 49, 50, 51, 52] },
-      // Sport (Kód: 64-79)
       'sport': { color: '#d62728', codes: [64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75] },
-      // Gyerek / Ifjúsági (Kód: 80-95)
       'children': { color: '#17a2b8', codes: [80, 81, 82, 83, 84, 85] },
-      // Zene / Balett (Kód: 96-111)
       'music': { color: '#44bd32', codes: [96, 97, 98, 99, 100, 101, 102] },
-      // Művészet / Kultúra (Kód: 112-127)
       'culture': { color: '#0044cc', codes: [112, 113, 114, 115, 116, 117, 118, 119, 120] },
-      // Társadalom / Politika (Kód: 128-143)
       'social': { color: '#95a5a6', codes: [128, 129, 130, 131, 132] },
-      // Oktatás / Tudomány (Kód: 144-159)
       'science': { color: '#8e44ad', codes: [144, 145, 146, 147, 148] },
-      // Szabadidő (Kód: 160-175)
       'leisure': { color: '#7f8fa6', codes: [160, 161, 162, 163] },
-      // Egyéb / Speciális
       'special': { color: '#2980b9', codes: [] }
     };
 
@@ -85,18 +71,14 @@ class TvheadendEpgCard extends HTMLElement {
 
   _getGenreColor(genreData) {
     if (genreData === undefined || genreData === null) return 'var(--primary-color)';
-
     const genres = Array.isArray(genreData) ? genreData : [genreData];
-    
     for (const g of genres) {
       const gNum = parseInt(g);
-      // Szám alapú keresés (DVB kódok)
       if (!isNaN(gNum)) {
         for (const config of Object.values(this.GENRE_MAP)) {
           if (config.codes.includes(gNum)) return config.color;
         }
       }
-      // Szöveg alapú keresés (ha mégis szöveg jönne)
       const gStr = String(g).toLowerCase();
       for (const [key, config] of Object.entries(this.GENRE_MAP)) {
         if (gStr.includes(key)) return config.color;
@@ -171,7 +153,14 @@ class TvheadendEpgCard extends HTMLElement {
         .now-line { position: absolute; top: 0; bottom: 0; left: ${nowPos}px; width: 2px; background: var(--error-color, #ff4444); z-index: 5; pointer-events: none; transform: translateX(-50%); }
         .program-grid { position: relative; width: ${gridWidth}px; }
         .event { position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px; padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden; color: white; border-left: 3px solid rgba(0,0,0,0.2); cursor: pointer; }
-        .event.current { border: 2px solid white; font-weight: bold; }
+        
+        /* MÓDOSÍTOTT: Aktuális műsor kerete a HA témához igazodik */
+        .event.current { 
+          outline: 2px solid var(--primary-text-color);
+          outline-offset: -2px;
+          font-weight: bold; 
+        }
+
         .event-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .channel-cell { height: ${this.ROW_HEIGHT}px; display: flex; flex-direction: column; justify-content: center; padding: 0 10px; border-bottom: 1px solid var(--divider-color); font-size: 13px; }
         .row { height: ${this.ROW_HEIGHT}px; border-bottom: 1px solid var(--divider-color); position: relative; }
