@@ -137,35 +137,43 @@ class TvheadendEpgCard extends HTMLElement {
       <style>
         * { box-sizing: border-box; }
         ha-card { display: block; background: var(--ha-card-background, var(--card-background-color, white)); color: var(--primary-text-color); overflow: hidden; position: relative; }
-        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 300; backdrop-filter: blur(2px); }
+        
+        .modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 500; backdrop-filter: blur(2px); }
         .modal-content { background: var(--ha-card-background, var(--card-background-color, #1c1c1c)); width: 85%; max-width: 500px; padding: 20px; border-radius: 12px; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.5); border: 1px solid var(--divider-color); }
         .modal-close { position: absolute; top: 10px; right: 15px; font-size: 28px; cursor: pointer; color: var(--secondary-text-color); line-height: 1; }
         .modal-title { font-size: 1.4em; font-weight: bold; margin-bottom: 5px; padding-right: 25px; }
         .modal-time { color: var(--accent-color); font-weight: 500; margin-bottom: 15px; font-size: 0.9em; }
         .modal-desc { font-size: 1em; line-height: 1.5; max-height: 300px; overflow-y: auto; }
-        #custom-tooltip { position: absolute; display: none; background: #333; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; z-index: 200; pointer-events: none; max-width: 250px; }
+        
+        #custom-tooltip { position: absolute; display: none; background: #333; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; z-index: 600; pointer-events: none; max-width: 250px; }
+        
         .outer-wrapper { overflow: auto; max-height: 750px; position: relative; }
         .epg-grid { display: grid; grid-template-columns: ${this.CHANNEL_COL_WIDTH}px 1fr; position: relative; width: max-content; }
-        .corner-spacer { position: sticky; top: 0; left: 0; z-index: 10; background: var(--secondary-background-color); border-bottom: 2px solid var(--divider-color); border-right: 2px solid var(--divider-color); height: 45px; display: flex; align-items: center; padding-left: 10px; font-weight: bold; font-size: 12px; }
-        .time-header { position: sticky; top: 0; z-index: 8; background: var(--secondary-background-color); height: 45px; border-bottom: 2px solid var(--divider-color); }
-        .channel-col { position: sticky; left: 0; z-index: 7; background: var(--ha-card-background, var(--card-background-color, white)); border-right: 2px solid var(--divider-color); }
-        .now-marker { position: absolute; bottom: 0; width: 0; height: 0; left: ${nowPos}px; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 10px solid var(--error-color, #ff4444); transform: translateX(-50%); z-index: 9; }
-        .now-line { position: absolute; top: 0; bottom: 0; left: ${nowPos}px; width: 2px; background: var(--error-color, #ff4444); z-index: 5; pointer-events: none; transform: translateX(-50%); }
-        .program-grid { position: relative; width: ${gridWidth}px; }
-        .event { position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px; padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden; color: white; border-left: 3px solid rgba(0,0,0,0.2); cursor: pointer; }
         
-        /* MÓDOSÍTOTT: Neon-sárga kiemelés kerettel és árnyékkal */
+        /* Z-INDEX FIXES */
+        .corner-spacer { position: sticky; top: 0; left: 0; z-index: 25; background: var(--secondary-background-color); border-bottom: 2px solid var(--divider-color); border-right: 2px solid var(--divider-color); height: 45px; display: flex; align-items: center; padding-left: 10px; font-weight: bold; font-size: 12px; }
+        .time-header { position: sticky; top: 0; z-index: 10; background: var(--secondary-background-color); height: 45px; border-bottom: 2px solid var(--divider-color); }
+        .channel-col { position: sticky; left: 0; z-index: 20; background: var(--ha-card-background, var(--card-background-color, white)); border-right: 2px solid var(--divider-color); }
+        
+        .now-marker { position: absolute; bottom: 0; width: 0; height: 0; left: ${nowPos}px; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 10px solid var(--error-color, #ff4444); transform: translateX(-50%); z-index: 35; }
+        .now-line { position: absolute; top: 0; bottom: 0; left: ${nowPos}px; width: 2px; background: var(--error-color, #ff4444); z-index: 30; pointer-events: none; transform: translateX(-50%); }
+        
+        .program-grid { position: relative; width: ${gridWidth}px; z-index: 1; }
+        .row { height: ${this.ROW_HEIGHT}px; border-bottom: 1px solid var(--divider-color); position: relative; z-index: 1; }
+        
+        .event { position: absolute; top: 8px; height: ${this.ROW_HEIGHT - 16}px; padding: 8px; border-radius: 4px; font-size: 11px; overflow: hidden; color: white; border-left: 3px solid rgba(0,0,0,0.2); cursor: pointer; z-index: 2; }
+        
+        /* MÓDOSÍTOTT: Ciánkék/Türkiz kiemelés */
         .event.current { 
-          outline: 3px solid #ffff00;
+          outline: 3px solid #00ffff;
           outline-offset: -3px;
-          z-index: 10;
+          z-index: 5;
           font-weight: bold; 
-          box-shadow: 0 0 8px rgba(255, 255, 0, 0.6);
+          box-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
         }
 
         .event-title { font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
         .channel-cell { height: ${this.ROW_HEIGHT}px; display: flex; flex-direction: column; justify-content: center; padding: 0 10px; border-bottom: 1px solid var(--divider-color); font-size: 13px; }
-        .row { height: ${this.ROW_HEIGHT}px; border-bottom: 1px solid var(--divider-color); position: relative; }
         .time-label { position: absolute; border-left: 1px solid var(--divider-color); height: 45px; padding-left: 5px; font-size: 11px; line-height: 45px; color: var(--secondary-text-color); }
       </style>
     `;
@@ -180,7 +188,8 @@ class TvheadendEpgCard extends HTMLElement {
       const left = ((e.start - minStart) / 60) * this.PX_PER_MIN;
       const width = ((e.stop - e.start) / 60) * this.PX_PER_MIN - this.CARD_GAP;
       const bgColor = this._getGenreColor(e.genre);
-      return `<div class="event ${e.start <= this._now && this._now < e.stop ? 'current' : ''}" style="left:${left}px; width:${Math.max(width, 10)}px; background-color: ${bgColor};" data-index="${idx}" data-channel="${c.number}"><div class="event-title">${e.title}</div><div style="font-size:0.9em; opacity:0.9;">${new Date(e.start * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div></div>`;
+      const isNow = e.start <= this._now && this._now < e.stop;
+      return `<div class="event ${isNow ? 'current' : ''}" style="left:${left}px; width:${Math.max(width, 10)}px; background-color: ${bgColor};" data-index="${idx}" data-channel="${c.number}"><div class="event-title">${e.title}</div><div style="font-size:0.9em; opacity:0.9;">${new Date(e.start * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div></div>`;
     }).join("")}</div>`).join("")}</div></div></div></ha-card>`;
 
     this.shadowRoot.querySelectorAll('.event').forEach(el => {
